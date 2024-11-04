@@ -1,0 +1,19 @@
+---
+title: "Metadatos"
+author: "Álvaro Linacero"
+date: "2024-11-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Conjunto de datos "Datos": Este conjunto de datos contiene concentraciones de metabolitos de 140 muestras
+- Variables:
+   Metabolitos: 149 filas con el nombre o identificador del metabolito (M1/M149)
+   Concentraciónes: Concentración medida en cada muestra y cada metabolito.
+   Muestras: 140 columnas, cada una corresponde a una muestra
+- Grupos: Las muestras están clasificadas en cuatro grupos: Tumor Benigno (BN), Tumor gastrointestinal (GC), Paciente   sano (HE), Control de calidad (QC).
+- Tipo de muestra: Muestra o QC.
+- Fuente: Los datos se pueden encontrar en Metabolomics Workbench data repository (Project ID PR000699).

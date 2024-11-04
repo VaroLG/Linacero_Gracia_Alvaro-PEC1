@@ -1,0 +1,134 @@
+---
+title: "PEC1"
+author: "Álvaro Linacero"
+date: "2024-11-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+```
+
+```{r}
+if (!requireNamespace("SummarizedExperiment", quietly = TRUE)) {
+  install.packages("BiocManager")
+  BiocManager::install("SummarizedExperiment")
+}
+if (!requireNamespace("readxl", quietly = TRUE)) {
+  install.packages("readxl")
+}
+library(SummarizedExperiment)
+library(readxl)
+```
+
+Extraer los conjuntos de datos del archivo en formato excel y preparar los conjuntos de datos que formarán el objeto SE.
+
+```{r}
+Excel<- "C:/Users/Usuario/OneDrive - UNIVERSIDAD SAN JORGE/Escritorio/Bioinfor y Bioest/Análisis de datos Ómicos/PEC 1/gastricCancer_NMR.xlsx"
+M <- as.matrix(read_excel(Excel, sheet = "Data", col_names = TRUE))
+rownames(M) <- M[, 2]  # Define la primera columna como nombres de fila (M)
+colData<- M[,2:4]
+colData<- data.frame(colData)
+colData$Class<- as.factor(colData$Class)
+M_data <- M[, 5:153] 
+M_data <- apply(M_data, 2, function(x) as.numeric(trimws(x)))
+M_data<- t(M_data)
+M_peak <- as.matrix(read_excel(Excel, sheet = "Peak", col_names = TRUE))
+rownames(M_peak)<- M_peak[, 2]
+M_peak <- M_peak[, 3:5] 
+```
+
+
+A continuación se crea el objeto Summaried Experiment, introduciendo el conjunto de "Datos" que contiene los valores corresponientes de concentración de cada metabolito para cada muestra como assay. El conjunto de datos "colData" será añadidio como colData y es un conjunto de datos que almacena metadatos de las muestras. "M_peak" se añade como rowData y almacena características de de cada metabolito.
+```{r}
+se <- SummarizedExperiment(assays = list(counts = M_data), colData = colData, rowData = M_peak)
+se
+save(se, file = "SE.Rda")
+Datos<- assay(se)
+Caracteristicas<-colData(se)
+Peak<- rowData(se)
+#Generar conjuntos de datos en formato csv y txt
+write.csv(as.data.frame(Datos), "Datos.csv", row.names = TRUE)
+write.table(as.data.frame(Datos), "Datos.txt", sep = "\t", row.names = TRUE)
+write.csv(as.data.frame(Caracteristicas), "Caracteristicas.csv", row.names = TRUE)
+write.table(as.data.frame(Caracteristicas), "Caracteristicas.txt", sep = "\t", row.names = TRUE)
+write.csv(as.data.frame(Peak), "Peak.csv", row.names = TRUE)
+write.table(as.data.frame(Peak), "Peak.txt", sep = "\t", row.names = TRUE)
+```
+El objeto SE es el que debemos subir a hithub y del que partiremos para acceder a los datos.
+```{r}
+dim(se)
+str(Datos)
+Resumen_datos <- data.frame(Media = rowMeans(Datos, na.rm = TRUE), Mediana = apply(Datos, 1, median, na.rm = TRUE), Minimo = apply(Datos, 1, min, na.rm = TRUE), Maximo = apply(Datos, 1, max, na.rm = TRUE), Desviacion = apply(Datos, 1, sd, na.rm = TRUE))
+head(Resumen_datos)
+```
+Vamos a hacer un análisis descriptivo de las concenctraciones de metabolitos.
+
+El metabolito con mayor concentración media en las diistintas muestras es el ```r which.max(Resumen_datos$Media)``` con ```r max(Resumen_datos$Media)```, el metabolito cuya mediana de concentración fué mayor es ```r which.max(Resumen_datos$Mediana)``` con ```r max(Resumen_datos$Mediana)```y el que mayor desviación ```r which.max(Resumen_datos$Desviacion)``` con ```r max(Resumen_datos$Desviacion)```, el metabolito que tuvo la concentración media menor fué ```r which.min(Resumen_datos$Minimo)``` con```r min(Resumen_datos$Minimo)```.
+```{r}
+hist(Resumen_datos$Media)
+#La mayoría de datos de concentraciones están en el rango de 0 a 1000, se observa que hay algún metabolito con concentración muy elevada en comparación con el resto.
+max(Resumen_datos$Media)
+which.max(Resumen_datos$Media)
+max(Resumen_datos$Mediana) 
+which.max(Resumen_datos$Mediana)
+max(Resumen_datos$Desviacion)
+which.max(Resumen_datos$Desviacion)
+min(Resumen_datos$Minimo)
+which.min(Resumen_datos$Minimo)
+max(Resumen_datos$Maximo)
+which.max((Resumen_datos$Maximo))
+```
+
+```{r}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+library(ggplot2)
+
+# Graficar la media de cada metabolito en formato histograma para hacernos una idea de las concentraciones de la muestra.
+
+df<- data.frame((Metabolitos = rownames(Datos)), Mean = Resumen_datos$Media)
+ggplot(df, aes(x = Metabolitos, y = Mean)) + geom_bar(stat = "identity") + scale_x_discrete(breaks = 1:149, labels = 1:149)
+```
+
+```{r}
+nrow(Caracteristicas)
+nrow(Datos)
+nrow(Peak)
+head(Caracteristicas)
+# Dividir las muestras en función del factor 'Grupo'
+Datos_grupos <- split(seq_len(ncol(Datos)), colData(se)$Class)
+# Crear una lista de assays por grupo
+Datos_por_grupos <- lapply(Datos_grupos, function(cols) Datos[, cols])
+Medias_por_grupos <- lapply(Datos_por_grupos, rowMeans, na.rm = TRUE)
+df_Datos_por_grupos<- data.frame(Datos_por_grupos)
+```
+Comprobar si al separar por grupos de pacientes benignos, enfermos, sanos y QC había cambio en el metabolito más expresado. Encontramos que M48 es el mas expresado en todos los grupos.
+```{r}
+max(Medias_por_grupos$BN)
+which.max(Medias_por_grupos$BN)
+max(Medias_por_grupos$GC)
+which.max(Medias_por_grupos$GC)
+max(Medias_por_grupos$HE)
+which.max(Medias_por_grupos$HE)
+max(Medias_por_grupos$QC)
+which.max(Medias_por_grupos$QC)
+```
+Visualizar la distribución de concentraciones de metabolitos por grupos. Observamos que M48 es el mas abundante en todos y que los demás presentan diferencias de expresión en función del grupo al que pertenecen.
+```{r}
+install.packages("patchwork")
+library(patchwork)
+df_medias <- data.frame(Medias_por_grupos)
+BN_plot<- ggplot(df_medias, aes(x = Metabolitos , y = Medias_por_grupos$BN)) + geom_bar(stat = "identity") + scale_x_discrete(breaks = 1:149, labels = 1:149)
+GC_plot<- ggplot(df_medias, aes(x = Metabolitos , y = Medias_por_grupos$GC)) + geom_bar(stat = "identity") + scale_x_discrete(breaks = 1:149, labels = 1:149)
+HE_plot<- ggplot(df_medias, aes(x = Metabolitos , y = Medias_por_grupos$HE)) + geom_bar(stat = "identity") + scale_x_discrete(breaks = 1:149, labels = 1:149)
+QC_plot<- ggplot(df_medias, aes(x = Metabolitos , y = Medias_por_grupos$QC)) + geom_bar(stat = "identity") + scale_x_discrete(breaks = 1:149, labels = 1:149)
+combined_plot <- (BN_plot | GC_plot) / (HE_plot | QC_plot)
+combined_plot
+```
+ Enlace para acceder al repositorio GitHub 
+ 
+ https://github.com/VaroLG/Linacero_Gracia_-lvaro-PEC1.git
+
